@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variation in pH of Acid/Base with Dilution</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --border-color: #bdc3c7;
+            --panel-bg: #ffffff;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--primary-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Header Layout */
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+        }
+
+        /* Main Lab Canvas */
+        .lab-container {
+            display: flex;
+            flex: 1;
+            padding: 15px;
+            gap: 15px;
+            height: calc(100vh - 120px);
+        }
+
+        /* Left Control Panel */
+        .control-panel {
+            width: 280px;
+            background: var(--panel-bg);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: var(--shadow);
+            overflow-y: auto;
+        }
+
+        .panel-section {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            background: #fafafa;
+        }
+
+        .panel-section h3 {
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: var(--primary-color);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        select, input[type="range"], button {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            margin-top: 5px;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #2980b9;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Center Simulation Workbench */
+        .workbench {
+            flex: 1;
+            background: var(--panel-bg);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            padding-bottom: 20px;
+        }
+
+        /* Top Instruction Banner */
+        .instruction-card {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.95);
+            border-left: 5px solid var(--accent-color);
+            padding: 12px 15px;
+            border-radius: 4px;
+            box-shadow: var(--shadow);
+            z-index: 10;
+        }
+
+        .instruction-card h4 {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
+
+        .instruction-card p {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-top: 2px;
+        }
+
+        /* SVG Simulation Area */
+        #sim-svg {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* Dynamic Tool Layer */
+        .interactive-tool {
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .interactive-tool:hover {
+            filter: drop-shadow(0 0 5px rgba(52, 152, 219, 0.8));
+        }
+
+        /* Bottom Controls / Status */
+        footer {
+            height: 50px;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        .audio-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            font-style: italic;
+            color: #ecf0f1;
+        }
+
+        .nav-btns {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-btns button {
+            width: auto;
+            padding: 6px 15px;
+            margin: 0;
+        }
+
+        .btn-reset {
+            background-color: #e74c3c;
+        }
+        .btn-reset:hover {
+            background-color: #c0392b;
+        }
+
+        /* Tooltip / Status popup */
+        .toast {
+            position: absolute;
+            bottom: 20px;
+            background: rgba(46, 204, 113, 0.9);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 20;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+
+        /* Liquid Animations */
+        @keyframes mix-liquid {
+            0% { fill: #a2d9ce; }
+            50% { fill: #76d7c4; }
+            100% { fill: #a2d9ce; }
+        }
+
+        .mixing {
+            animation: mix-liquid 0.5s infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Observe the Variation in pH of Acid/Base with Dilution</h1>
+        <div>Grade 11 Chemistry Lab</div>
+    </header>
+
+    <div class="lab-container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="panel-section">
+                <h3>1. Select Solution</h3>
+                <select id="solution-select">
+                    <option value="HCl">0.1 M Hydrochloric Acid (HCl)</option>
+                    <option value="H2SO4">Sulphuric Acid (H₂SO₄)</option>
+                    <option value="CH3COOH">Acetic Acid (CH₃COOH)</option>
+                    <option value="NaOH">Sodium Hydroxide (NaOH)</option>
+                    <option value="KOH">Potassium Hydroxide (KOH)</option>
+                    <option value="NH3">Ammonia (NH₃)</option>
+                </select>
+            </div>
+
+            <div class="panel-section">
+                <h3>2. Solution Volume</h3>
+                <label for="vol-slider" id="vol-label">Volume: 2 mL</label>
+                <input type="range" id="vol-slider" min="1" max="5" value="2" step="1">
+            </div>
+
+            <div class="panel-section">
+                <h3>3. Reagents</h3>
+                <button id="btn-water-panel">Add Water (Panel)</button>
+            </div>
+
+            <div class="panel-section" style="margin-top: auto;">
+                <h3>Lab Precautions</h3>
+                <p style="font-size: 0.75rem; color: #555;">
+                    ⚠️ Wear goggles when handling acids/bases.<br>
+                    ⚠️ Handle boiling tubes carefully to avoid breakage.
+                </p>
+            </div>
+        </div>
+
+        <!-- Interactive Lab Bench -->
+        <div class="workbench" id="workbench">
+            <div class="instruction-card">
+                <h4 id="step-aim">Aim: Step 1</h4>
+                <p id="step-instruction">Instructions loading...</p>
+            </div>
+
+            <div id="toast" class="toast">Action completed successfully</div>
+
+            <svg id="sim-svg" viewBox="0 0 800 500">
+                <!-- Lab Bench Surface -->
+                <rect x="50" y="380" width="700" height="15" fill="#8d6e63" rx="3"/>
+                <rect x="40" y="395" width="720" height="25" fill="#6d4c41"/>
+
+                <!-- Glazed Tile for pH Strips -->
+                <rect x="450" y="350" width="280" height="25" fill="#ffffff" stroke="#bdc3c7" stroke-width="2" rx="2"/>
+
+                <!-- 4 pH Paper Strips on Glazed Tile -->
+                <g id="ph-strips">
+                    <!-- Strip A -->
+                    <rect id="strip-0" x="470" y="355" width="40" height="15" fill="#f1c40f" stroke="#d4ac0d" rx="1" class="interactive-tool" onclick="handleStripClick(0)"/>
+                    <text x="490" y="348" font-size="10" text-anchor="middle" fill="#555">A</text>
+
+                    <!-- Strip B -->
+                    <rect id="strip-1" x="530" y="355" width="40" height="15" fill="#f1c40f" stroke="#d4ac0d" rx="1" class="interactive-tool" onclick="handleStripClick(1)"/>
+                    <text x="550" y="348" font-size="10" text-anchor="middle" fill="#555">B</text>
+
+                    <!-- Strip C -->
+                    <rect id="strip-2" x="590" y="355" width="40" height="15" fill="#f1c40f" stroke="#d4ac0d" rx="1" class="interactive-tool" onclick="handleStripClick(2)"/>
+                    <text x="610" y="348" font-size="10" text-anchor="middle" fill="#555">C</text>
+
+                    <!-- Strip D -->
+                    <rect id="strip-3" x="650" y="355" width="40" height="15" fill="#f1c40f" stroke="#d4ac0d" rx="1" class="interactive-tool" onclick="handleStripClick(3)"/>
+                    <text x="670" y="348" font-size="10" text-anchor="middle" fill="#555">D</text>
+                </g>
+
+                <!-- Test Tube Stand & Boiling Tubes -->
+                <g id="tubes-group">
+                    <!-- Stand Backing -->
+                    <rect x="80" y="365" width="320" height="15" fill="#b0bec5"/>
+                    <rect x="90" y="240" width="300" height="10" fill="#b0bec5"/>
+                    <rect x="85" y="240" width="10" height="140" fill="#78909c"/>
+                    <rect x="385" y="240" width="10" height="140" fill="#78909c"/>
+
+                    <!-- Tube A -->
+                    <g id="tube-group-0" class="interactive-tool" onclick="handleTubeClick(0)">
+                        <rect x="110" y="200" width="30" height="160" rx="15" fill="rgba(255,255,255,0.3)" stroke="#b2bec3" stroke-width="2"/>
+                        <path id="liquid-0" d="M 111 360 Q 125 365 139 360 L 139 360 L 111 360 Z" fill="#e74c3c" opacity="0.7"/>
+                        <text x="125" y="375" font-size="12" font-weight="bold" text-anchor="middle" fill="#333">A</text>
+                        <text id="vol-text-0" x="125" y="190" font-size="10" text-anchor="middle" fill="#555">0 mL</text>
+                    </g>
+
+                    <!-- Tube B -->
+                    <g id="tube-group-1" class="interactive-tool" onclick="handleTubeClick(1)">
+                        <rect x="180" y="200" width="30" height="160" rx="15" fill="rgba(255,255,255,0.3)" stroke="#b2bec3" stroke-width="2"/>
+                        <path id="liquid-1" d="M 181 360 Q 195 365 209 360 L 209 360 L 181 360 Z" fill="#e74c3c" opacity="0.6"/>
+                        <text x="195" y="375" font-size="12" font-weight="bold" text-anchor="middle" fill="#333">B</text>
+                        <text id="vol-text-1" x="195" y="190" font-size="10" text-anchor="middle" fill="#555">0 mL</text>
+                    </g>
+
+                    <!-- Tube C -->
+                    <g id="tube-group-2" class="interactive-tool" onclick="handleTubeClick(2)">
+                        <rect x="250" y="200" width="30" height="160" rx="15" fill="rgba(255,255,255,0.3)" stroke="#b2bec3" stroke-width="2"/>
+                        <path id="liquid-2" d="M 251 360 Q 265 365 279 360 L 279 360 L 251 360 Z" fill="#e74c3c" opacity="0.4"/>
+                        <text x="265" y="375" font-size="12" font-weight="bold" text-anchor="middle" fill="#333">C</text>
+                        <text id="vol-text-2" x="265" y="190" font-size="10" text-anchor="middle" fill="#555">0 mL</text>
+                    </g>
+
+                    <!-- Tube D -->
+                    <g id="tube-group-3" class="interactive-tool" onclick="handleTubeClick(3)">
+                        <rect x="320" y="200" width="30" height="160" rx="15" fill="rgba(255,255,255,0.3)" stroke="#b2bec3" stroke-width="2"/>
+                        <path id="liquid-3" d="M 321 360 Q 335 365 349 360 L 349 360 L 321 360 Z" fill="#e74c3c" opacity="0.2"/>
+                        <text x="335" y="375" font-size="12" font-weight="bold" text-anchor="middle" fill="#333">D</text>
+                        <text id="vol-text-3" x="335" y="190" font-size="10" text-anchor="middle" fill="#555">0 mL</text>
+                    </g>
+                </g>
+
+                <!-- Water Beaker -->
+                <g id="water-beaker" class="interactive-tool" transform="translate(420, 260)" onclick="handleWaterClick()">
+                    <rect x="0" y="0" width="60" height="80" rx="2" fill="rgba(255,255,255,0.4)" stroke="#95a5a6" stroke-width="2"/>
+                    <rect x="2" y="20" width="56" height="58" fill="#3498db" opacity="0.3"/>
+                    <text x="30" y="45" font-size="10" text-anchor="middle" font-weight="bold" fill="#2980b9">WATER</text>
+                </g>
+
+                <!-- Animated Tools (Pipette & Dropper Container) -->
+                <g id="pipette-tool" transform="translate(500, 100)" style="display: none; transition: transform 0.8s ease-in-out;">
+                    <path d="M 0 0 L 10 0 L 7 60 L 3 80 L 0 80 Z" fill="rgba(200,200,200,0.8)" stroke="#7f8c8d"/>
+                    <ellipse cx="5" cy="0" rx="8" ry="12" fill="#c0392b"/>
+                    <path id="pipette-liquid" d="M 2 40 L 8 40 L 7 60 L 3 80 L 2 80 Z" fill="#e74c3c" opacity="0.7"/>
+                </g>
+
+                <g id="dropper-tool" transform="translate(600, 100)" style="display: none; transition: transform 0.8s ease-in-out;">
+                    <path d="M 0 0 L 8 0 L 5 40 L 2 55 L 0 55 Z" fill="rgba(200,200,200,0.8)" stroke="#7f8c8d"/>
+                    <ellipse cx="4" cy="0" rx="6" ry="8" fill="#2c3e50"/>
+                    <circle id="drop" cx="2" cy="60" r="3" fill="#e74c3c" opacity="0"/>
+                </g>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <footer>
+        <div class="audio-bar">
+            <span>🔊 Voiceover:</span>
+            <span id="vo-text">Welcome students. Let us observe the variation in pH of an acid/base with dilution.</span>
+        </div>
+        <div class="nav-btns">
+            <button id="btn-back" onclick="prevStep()">Back</button>
+            <button class="btn-reset" onclick="resetSimulation()">Reset</button>
+        </div>
+    </footer>
+
+    <script>
+        // Simulation Script State Engine
+        const steps = [
+            {
+                aim: "Add acid solution to tube A.",
+                instruction: "Use the Solution Selector and Volume Slider to add 2 mL of 0.1 M HCl to tube A. (Click Tube A)",
+                vo1: "Let's start with 0.1 M HCl. Add acid solution to tube A.",
+                vo2: "Drag and add 2 mL HCl into tube A.",
+                vo3: "Tube A contains 2 mL of 0.1 M hydrochloric acid.",
+                actionType: "ADD_TUBE_A"
+            },
+            {
+                aim: "Prepare diluted acid solution in tube B.",
+                instruction: "Use the Solution Selector to add 2 mL 0.1 M HCl to tube B. (Click Tube B)",
+                vo1: "Prepare diluted acid solution in tube B.",
+                vo2: "Drag 2 mL HCl into tube B.",
+                vo3: "Tube B has 2mL 0.1 M hydrochloric acid solution.",
+                actionType: "ADD_TUBE_B"
+            },
+            {
+                aim: "Add water to tube B to complete the dilution.",
+                instruction: "Select 18 mL water from the Panel (or click Water Beaker) and add it to tube B.",
+                vo1: "Add water to tube B to complete the 1:10 dilution.",
+                vo2: "Tap and Add 18 mL water to tube B.",
+                vo3: "18 mL water is added to tube B to make a 20mL solution.",
+                actionType: "WATER_TUBE_B"
+            },
+            {
+                aim: "Prepare dilution by transferring liquid from tube B to tube C.",
+                instruction: "Use the Pipette tool to transfer 5 mL from tube B to tube C. (Click Tube B)",
+                vo1: "Now, transfer 5mL of solution from tube B to tube C.",
+                vo2: "Use pipette to transfer 5 mL from tube B to tube C.",
+                vo3: "5 mL of diluted acid from tube B is transferred to tube C successfully.",
+                actionType: "PIPETTE_B_C"
+            },
+            {
+                aim: "Add water to tube C to complete the dilution.",
+                instruction: "Select 15 mL water from the Panel (or click Water Beaker) and add it to tube C.",
+                vo1: "Add water to tube C to complete the dilution.",
+                vo2: "Add 15 mL water to tube C.",
+                vo3: "15 mL water is added to tube C accurately to get the next dilution.",
+                actionType: "WATER_TUBE_C"
+            },
+            {
+                aim: "Prepare third dilution by transferring liquid from tube C to tube D.",
+                instruction: "Use the Pipette tool to transfer 5 mL from tube C to tube D. (Click Tube C)",
+                vo1: "Prepare third dilution now. Transfer 5mL of diluted HCl from tube C to tube D.",
+                vo2: "Use pipette to transfer 5 mL from tube C to tube D.",
+                vo3: "5 mL of diluted acid from tube C is transferred to tube D successfully.",
+                actionType: "PIPETTE_C_D"
+            },
+            {
+                aim: "Add water to tube D and mix the solution thoroughly.",
+                instruction: "Select 15 mL water from the Panel, add to tube D, then click Tube D to mix.",
+                vo1: "Add water to tube D and mix the solution thoroughly.",
+                vo2: "Add 15 mL water to tube D and click tube D to mix.",
+                vo3: "15 mL water is added to tube D accurately to get the final dilution.",
+                actionType: "WATER_MIX_D"
+            },
+            {
+                aim: "Test pH of solution in tube A with pH paper.",
+                instruction: "Select tube A, then click Dropper / Strip A to add one drop onto first pH paper strip.",
+                vo1: "Now, we need to compare the acidity of the solution against the dilutions. Start with testing pH of solution in tube A with pH paper.",
+                vo2: "Drag and place the pH strip in Test Tube A.",
+                vo3: "The first pH paper strip changes color to Dark red indicating tube A's pH to be around 1 to 2.",
+                actionType: "PH_TEST_A",
+                color: "#e74c3c" // Dark Red
+            },
+            {
+                aim: "Test pH of solution in tube B with pH paper.",
+                instruction: "Select tube B, then use Dropper / Strip B to add one drop onto second pH paper strip.",
+                vo1: "Test pH of solution in tube B with pH paper.",
+                vo2: "Drag and place the pH strip in Test Tube B.",
+                vo3: "The second pH paper strip changes color to Red to orange indicating tube B's pH to be 2 to 3.",
+                actionType: "PH_TEST_B",
+                color: "#e67e22" // Red-Orange
+            },
+            {
+                aim: "Test solution in tube C on pH papers.",
+                instruction: "Select tube C, add one drop onto third strip.",
+                vo1: "Test pH of solution in tube C with pH paper.",
+                vo2: "Drag and place the pH strip in Test Tube C.",
+                vo3: "The third pH strips show color change to orange to yellow for tube C indicating pH of 3 to 4.",
+                actionType: "PH_TEST_C",
+                color: "#f39c12" // Orange-Yellow
+            },
+            {
+                aim: "Test pH of solution in tube D with pH paper.",
+                instruction: "Select tube D, then use Dropper to add one drop onto the fourth pH paper strip.",
+                vo1: "Test pH of solution in tube D with pH paper.",
+                vo2: "Drag and place the pH strip in Test Tube D.",
+                vo3: "The fourth pH paper strip changes color to yellow to pale yellow indicating tube D's pH to be 4 to 5.",
+                actionType: "PH_TEST_D",
+                color: "#f1c40f" // Pale Yellow
+            },
+            {
+                aim: "Experiment Completed!",
+                instruction: "Well done! You can see that the acidity of the solution reduced with dilution.",
+                vo1: "Well done! You can see that the acidity of the solution reduced with dilution.",
+                vo2: "You can now try the same procedure with other acids and bases to observe how their pH changes with dilution.",
+                vo3: "Experiment finished.",
+                actionType: "COMPLETE"
+            }
+        ];
+
+        let currentStep = 0;
+        let volumes = [0, 0, 0, 0]; // Tube volumes in mL
+
+        // DOM Elements
+        const volSlider = document.getElementById("vol-slider");
+        const volLabel = document.getElementById("vol-label");
+        const stepAim = document.getElementById("step-aim");
+        const stepInstruction = document.getElementById("step-instruction");
+        const voText = document.getElementById("vo-text");
+        const toast = document.getElementById("toast");
+        const btnBack = document.getElementById("btn-back");
+        const btnWater = document.getElementById("btn-water-panel");
+
+        // Initialize UI
+        volSlider.addEventListener("input", (e) => {
+            volLabel.innerText = `Volume: ${e.target.value} mL`;
+        });
+
+        btnWater.addEventListener("click", () => {
+            handleWaterClick();
+        });
+
+        function updateStepUI() {
+            const step = steps[currentStep];
+            stepAim.innerText = `Aim: ${step.aim}`;
+            stepInstruction.innerText = step.instruction;
+            voText.innerText = `${step.vo1} ${step.vo2}`;
+
+            btnBack.disabled = currentStep === 0;
+
+            // Enable/disable water button state based on requirement
+            if (step.actionType.startsWith("WATER")) {
+                btnWater.classList.add("highlight");
+            } else {
+                btnWater.classList.remove("highlight");
+            }
+        }
+
+        function showToast(msg) {
+            toast.innerText = msg;
+            toast.classList.add("show");
+            setTimeout(() => toast.classList.remove("show"), 2500);
+        }
+
+        function setLiquidLevel(tubeIdx, volumeMl, opacity = 0.7) {
+            volumes[tubeIdx] = volumeMl;
+            const textElem = document.getElementById(`vol-text-${tubeIdx}`);
+            textElem.innerText = `${volumeMl} mL`;
+
+            // SVG Path calculations
+            const liquidElem = document.getElementById(`liquid-${tubeIdx}`);
+            const basePathX = 111 + (tubeIdx * 70);
+            const height = Math.min(volumeMl * 6, 140); // Cap at max tube height
+            const topY = 360 - height;
+            
+            if (volumeMl > 0) {
+                liquidElem.setAttribute("d", `M ${basePathX} 360 Q ${basePathX + 14} 365 ${basePathX + 28} 360 L ${basePathX + 28} ${topY} L ${basePathX} ${topY} Z`);
+                if (opacity) liquidElem.setAttribute("opacity", opacity);
+            } else {
+                liquidElem.setAttribute("d", `M ${basePathX} 360 Q ${basePathX + 14} 365 ${basePathX + 28} 360 L ${basePathX + 28} 360 L ${basePathX} 360 Z`);
+            }
+        }
+
+        function advanceStep() {
+            const step = steps[currentStep];
+            voText.innerText = step.vo3;
+            showToast("Step completed!");
+            
+            setTimeout(() => {
+                if (currentStep < steps.length - 1) {
+                    currentStep++;
+                    updateStepUI();
+                }
+            }, 1500);
+        }
+
+        function prevStep() {
+            if (currentStep > 0) {
+                currentStep--;
+                updateStepUI();
+            }
+        }
+
+        // Action Handlers for Interactivity
+        function handleTubeClick(tubeIdx) {
+            const step = steps[currentStep];
+
+            if (step.actionType === "ADD_TUBE_A" && tubeIdx === 0) {
+                const vol = parseInt(volSlider.value);
+                setLiquidLevel(0, vol);
+                advanceStep();
+            } 
+            else if (step.actionType === "ADD_TUBE_B" && tubeIdx === 1) {
+                setLiquidLevel(1, 2);
+                advanceStep();
+            }
+            else if (step.actionType === "PIPETTE_B_C" && tubeIdx === 1) {
+                animatePipette(1, 2, () => {
+                    setLiquidLevel(1, volumes[1] - 5);
+                    setLiquidLevel(2, 5);
+                    advanceStep();
+                });
+            }
+            else if (step.actionType === "PIPETTE_C_D" && tubeIdx === 2) {
+                animatePipette(2, 3, () => {
+                    setLiquidLevel(2, volumes[2] - 5);
+                    setLiquidLevel(3, 5);
+                    advanceStep();
+                });
+            }
+            else if (step.actionType === "WATER_MIX_D" && tubeIdx === 3 && volumes[3] === 20) {
+                // Mix action on Tube D
+                const liquid = document.getElementById("liquid-3");
+                liquid.classList.add("mixing");
+                setTimeout(() => {
+                    liquid.classList.remove("mixing");
+                    advanceStep();
+                }, 1000);
+            }
+            else if (step.actionType.startsWith("PH_TEST") && getTubeForPHStep(step.actionType) === tubeIdx) {
+                handleStripClick(tubeIdx);
+            }
+        }
+
+        function handleWaterClick() {
+            const step = steps[currentStep];
+            if (step.actionType === "WATER_TUBE_B") {
+                setLiquidLevel(1, volumes[1] + 18);
+                advanceStep();
+            } else if (step.actionType === "WATER_TUBE_C") {
+                setLiquidLevel(2, volumes[2] + 15);
+                advanceStep();
+            } else if (step.actionType === "WATER_MIX_D" && volumes[3] < 20) {
+                setLiquidLevel(3, volumes[3] + 15);
+                showToast("15 mL water added. Now click Tube D to mix.");
+            }
+        }
+
+        function getTubeForPHStep(actionType) {
+            if (actionType === "PH_TEST_A") return 0;
+            if (actionType === "PH_TEST_B") return 1;
+            if (actionType === "PH_TEST_C") return 2;
+            if (actionType === "PH_TEST_D") return 3;
+            return -1;
+        }
+
+        function handleStripClick(stripIdx) {
+            const step = steps[currentStep];
+            const targetTube = getTubeForPHStep(step.actionType);
+
+            if (targetTube === stripIdx) {
+                animateDropper(targetTube, stripIdx, step.color, () => {
+                    document.getElementById(`strip-${stripIdx}`).setAttribute("fill", step.color);
+                    advanceStep();
+                });
+            }
+        }
+
+        // SVG Tool Animations
+        function animatePipette(fromTube, toTube, callback) {
+            const pipette = document.getElementById("pipette-tool");
+            const startX = 120 + (fromTube * 70);
+            const endX = 120 + (toTube * 70);
+
+            pipette.style.display = "block";
+            pipette.setAttribute("transform", `translate(${startX}, 140)`);
+
+            setTimeout(() => {
+                pipette.setAttribute("transform", `translate(${endX}, 140)`);
+                setTimeout(() => {
+                    pipette.style.display = "none";
+                    callback();
+                }, 800);
+            }, 800);
+        }
+
+        function animateDropper(fromTube, toStrip, color, callback) {
+            const dropper = document.getElementById("dropper-tool");
+            const drop = document.getElementById("drop");
+            const startX = 120 + (fromTube * 70);
+            const stripX = 485 + (toStrip * 60);
+
+            dropper.style.display = "block";
+            drop.setAttribute("fill", color);
+            dropper.setAttribute("transform", `translate(${startX}, 150)`);
+
+            setTimeout(() => {
+                dropper.setAttribute("transform", `translate(${stripX}, 280)`);
+                setTimeout(() => {
+                    drop.setAttribute("opacity", "1");
+                    drop.setAttribute("cy", "75");
+                    setTimeout(() => {
+                        drop.setAttribute("opacity", "0");
+                        drop.setAttribute("cy", "60");
+                        dropper.style.display = "none";
+                        callback();
+                    }, 400);
+                }, 800);
+            }, 800);
+        }
+
+        function resetSimulation() {
+            currentStep = 0;
+            volumes = [0, 0, 0, 0];
+            for (let i = 0; i < 4; i++) {
+                setLiquidLevel(i, 0);
+                document.getElementById(`strip-${i}`).setAttribute("fill", "#f1c40f");
+            }
+            updateStepUI();
+            showToast("Simulation Reset");
+        }
+
+        // Initial setup
+        updateStepUI();
+    </script>
+</body>
+</html>
